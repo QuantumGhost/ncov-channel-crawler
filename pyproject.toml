@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "ncov-news-crawler"
+version = "0.1.0"
+description = ""
+authors = ["QuantumGhost <lqd1991@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+telethon = "^1.10.10"
+cryptg = "^0.2.post0"
+uvicorn = "^0.11.2"
+starlette = "^0.13.0"
+structlog = "^19.2.0"
+colorama = "^0.4.3"
+env_conf = "^0.1.0"
+pysocks = "^1.7.1"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
