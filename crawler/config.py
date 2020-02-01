@@ -8,3 +8,4 @@ class Config(EnvProvider):
     API_HASH = Field(String, desc="telegram api hash")
     PROXY = Field(String, desc="socks proxy", optional=True)
     TG_SESSION = Field(String, desc="Telegram session file")
+    LOG_LEVEL = Field(String, desc="logging level", default="INFO")
