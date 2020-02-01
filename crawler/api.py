@@ -47,9 +47,9 @@ async def get_messages(request: Request):
         try:
             mod_time = pendulum.DateTime.strptime(modHeader, _HTTP_DATE_STR).timestamp()
         except (TypeError, ValueError):
-            mod_time = 0
+            mod_time = -1
     else:
-        mod_time = 0
+        mod_time = -1
     if int(mod_time) >= int(msg_info.updated_at):
         return Response(status_code=304)
 
