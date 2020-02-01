@@ -1,10 +1,10 @@
 import asyncio
 import bisect
-import datetime
 from http import HTTPStatus
 import typing as tp
 
 from structlog import get_logger
+import pendulum
 
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
@@ -41,16 +41,16 @@ async def get_messages(request: Request):
     logger = get_logger()
     modHeader = request.headers.get("If-Modified-Since")
     crawler = get_crawler(request)
-    messages = crawler.get_messages()
+    msg_info = crawler.get_messages()
 
     if modHeader:
         try:
-            mod_time = datetime.datetime.strptime(modHeader, _HTTP_DATE_STR).timestamp()
+            mod_time = pendulum.DateTime.strptime(modHeader, _HTTP_DATE_STR).timestamp()
         except (TypeError, ValueError):
             mod_time = 0
     else:
         mod_time = 0
-    if int(mod_time) >= int(messages.updated_at):
+    if int(mod_time) >= int(msg_info.updated_at):
         return Response(status_code=304)
 
     limit = min(_MAX_LIMIT, _parse_int_query_params(request, "limit", _MAX_LIMIT))
@@ -59,18 +59,29 @@ async def get_messages(request: Request):
     max_id = _parse_int_query_params(request, "max_id")
     logger.info("got request query", limit=limit, max_id=max_id)
     part = []
+    keyed_list = KeyedList(msg_info.messages, key=lambda x: x.id)
     if max_id is not None:
-        idx = bisect.bisect_left(
-            KeyedList(messages.messages, key=lambda x: x.id), max_id
-        )
-        part = messages.messages[idx - limit : idx]
+        idx = bisect.bisect_left(keyed_list, max_id)
+        part = msg_info.messages[idx - limit : idx]
     else:
-        part = messages.messages[-limit:]
+        part = msg_info.messages[-limit:]
+
+    if msg_info.pinned_id != 0:
+        pinned_idx = bisect.bisect_left(keyed_list, msg_info.pinned_id)
+        if (
+            pinned_idx != len(keyed_list)
+            and keyed_list[pinned_idx] == msg_info.pinned_id
+        ):
+            pinned = msg_info.messages[pinned_idx]
+        else:
+            pinned = None
+    else:
+        pinned = None
 
     part.reverse()
-    dt = datetime.datetime.fromtimestamp(messages.updated_at)
+    dt = pendulum.from_timestamp(msg_info.updated_at).in_timezone(pendulum.UTC)
     return JSONResponse(
-        {"messages": part},
+        {"messages": part, "pinned_message": pinned},
         headers={
             "Cache-Control": "max-age=60",
             "Last-Modified": dt.strftime(_HTTP_DATE_STR),

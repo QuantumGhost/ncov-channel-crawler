@@ -1,4 +1,5 @@
 import asyncio
+import bisect
 import enum
 import time
 import typing as tp
@@ -7,13 +8,16 @@ from urllib.parse import urlparse
 import socks
 from structlog import get_logger
 from telethon import TelegramClient
+from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.patched import MessageService
+from telethon.tl.types import PeerChannel
 
 
-class Messages(tp.NamedTuple):
+class MessageInfo(tp.NamedTuple):
     updated_at: float = 0
     messages: list = []
     last_id: int = 1
+    pinned_id: int = 0
 
 
 @enum.unique
@@ -47,7 +51,6 @@ class Crawler:
         self.updated_at: float = 0
         self.messages: list = []
         self.last_id: int = 1
-        self._messages = Messages()
         if proxy_str is not None:
             proxy = parse_proxy_str(proxy_str)
         else:
@@ -58,9 +61,12 @@ class Crawler:
             session, api_id=api_id, api_hash=api_hash, proxy=proxy
         )
 
-    def get_messages(self) -> Messages:
-        return Messages(
-            updated_at=self.updated_at, messages=self.messages, last_id=self.last_id
+    def get_messages(self) -> MessageInfo:
+        return MessageInfo(
+            updated_at=self.updated_at,
+            messages=self.messages,
+            last_id=self.last_id,
+            pinned_id=self.pinned_id,
         )
 
     async def _poll(self) -> bool:
@@ -71,10 +77,8 @@ class Crawler:
             self._CHANNEL_LINK, min_id=last_id, limit=100, reverse=True,
         )
         logger.debug("got messages from telegram", msg_num=len(messages))
+        await self._poll_pinned_msg()
         if messages:
-            for i in messages:
-                if isinstance(i, MessageService):
-                    print(i.action)
             self.messages.extend(messages)
             self.last_id = messages[-1].id
             self.updated_at = time.time()
@@ -82,14 +86,25 @@ class Crawler:
         else:
             return False
 
+    async def _poll_pinned_msg(self):
+        client = self._client
+        logger = get_logger()
+        channel_id = (await client.get_entity("nCoV2019")).id
+        logger.debug("got channel info", id=channel_id)
+        channel_entity = await client.get_entity(PeerChannel(channel_id))
+        channel_info = await client(GetFullChannelRequest(channel_entity))
+        pinned_msg_id = channel_info.full_chat.pinned_msg_id
+        logger.debug("channel info", pinned_msg_id=pinned_msg_id)
+        self.pinned_id = pinned_msg_id
+
     async def start_poll(self, interval=30):
         logger = get_logger()
-        logger.info("before telegram client start")
-        await self._client.start()
-        logger.info("telegram client started")
+        logger.debug("before telegram client start")
+        logger.debug("telegram client started")
+        await self._poll_pinned_msg()
         while True:
-            logger.info("start polling")
+            logger.debug("start polling")
             more = await self._poll()
-            logger.info("poll ended", more=more)
+            logger.debug("poll ended", more=more)
             if not more:
                 await asyncio.sleep(interval)
