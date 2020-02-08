@@ -2,7 +2,7 @@ version: '3'
 
 services:
   crawler:
-    image: docker.pkg.github.com/quantumghost/ncov-channel-crawler/crawler:latest
+    image: docker.pkg.github.com/quantumghost/ncov-channel-crawler/crawler:stable
     restart: unless-stopped
     command: --host 0.0.0.0 --port 8000
     ports:
