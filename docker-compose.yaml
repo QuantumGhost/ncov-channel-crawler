@@ -1,0 +1,24 @@
+version: '3'
+
+services:
+  crawler:
+    image: docker.pkg.github.com/quantumghost/ncov-channel-crawler/crawler:latest
+    restart: unless-stopped
+    command: --host 0.0.0.0 --port 8000
+    ports:
+      - "1201:8000"
+    env_file:
+      - crawler.env
+    volumes:
+      - ./data:/data
+
+  caddy:
+    image: abiosoft/caddy
+    restart: unless-stopped
+    environment:
+      ACME_AGREE: "true"
+    ports:
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/Caddyfile
+      - ./caddy:/root/.caddy

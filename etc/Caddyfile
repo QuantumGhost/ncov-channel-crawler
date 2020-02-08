@@ -1,0 +1,15 @@
+ncov-rss.qgis.me {
+  proxy /api crawler:8000 {
+    transparent
+  }
+
+  tls <YOUR_EMAIL_HERE>
+  log stdout
+  errors stderr
+
+  gzip
+
+  cors / {
+    allowed_headers *
+  }
+}
